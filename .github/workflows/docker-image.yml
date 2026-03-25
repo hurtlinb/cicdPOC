@@ -27,7 +27,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: docker.io/hurtlinb/cicdPOC
+          images: docker.io/hurtlinb/cicdpoc
           tags: |
             type=raw,value=dev
             type=sha
