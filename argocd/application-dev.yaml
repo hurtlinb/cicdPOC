@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cicd-poc-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/hurtlinb/cicdPOC.git
+    targetRevision: dev
+    path: k8s/base
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cicd-poc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
