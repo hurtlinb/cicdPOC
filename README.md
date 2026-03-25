@@ -44,3 +44,4 @@ Ressources créées :
 - un namespace `cicd-poc`
 - un `Deployment`
 - un `Service` `ClusterIP`
+- un `Ingress` Traefik exposé sur `poc.app.emfnet.ch`
