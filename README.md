@@ -19,7 +19,12 @@ docker build -t cicd-poc .
 ```
 
 Le workflow GitHub Actions de [`.github/workflows/docker-image.yml`](./.github/workflows/docker-image.yml)
-publie l'image `docker.io/hurtlinb/cicdpoc` avec le tag `dev` sur la branche `dev`.
+publie l'image `docker.io/hurtlinb/cicdpoc` :
+
+- avec le tag `dev` pour la branche `dev`
+- avec le tag `latest` pour la branche `main`
+
+Dans les deux cas, il publie aussi un tag `sha-<commit>`.
 
 ## Déploiement avec Argo CD
 
