@@ -1,4 +1,3 @@
-# .github/workflows/docker-dev.yml
 name: Build and push Docker image on dev
 
 on:
@@ -39,3 +38,23 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Checkout gitops repository
+        uses: actions/checkout@v4
+        with:
+          repository: hurtlinb/gitops
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      - name: Update cicdpoc dev image tag
+        run: |
+          sed -i "s/newTag: .*/newTag: sha-${GITHUB_SHA::7}/" gitops/apps/cicdpoc/overlays/dev/kustomization.yaml
+
+      - name: Commit and push gitops change
+        run: |
+          cd gitops
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/cicdpoc/overlays/dev/kustomization.yaml
+          git commit -m "cicdpoc dev -> sha-${GITHUB_SHA::7}" || exit 0
+          git push
