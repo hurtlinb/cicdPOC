@@ -48,13 +48,13 @@ jobs:
 
       - name: Update cicdpoc dev image tag
         run: |
-          sed -i "s/newTag: .*/newTag: sha-${GITHUB_SHA::7}/" gitops/apps/cicdpoc/overlays/dev/kustomization.yaml
+          sed -i "s/newTag: .*/newTag: sha-${GITHUB_SHA::7}/" gitops/apps/cicdpoc/overlays/prod/kustomization.yaml
 
       - name: Commit and push gitops change
         run: |
           cd gitops
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/cicdpoc/overlays/dev/kustomization.yaml
+          git add apps/cicdpoc/overlays/prod/kustomization.yaml
           git commit -m "cicdpoc dev -> sha-${GITHUB_SHA::7}" || exit 0
           git push
