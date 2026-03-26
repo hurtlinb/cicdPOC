@@ -1,9 +1,10 @@
-name: Build and push Docker image on dev
+name: Build and push Docker image
 
 on:
   push:
     branches:
       - dev
+      - main
 
 jobs:
   docker:
@@ -13,6 +14,27 @@ jobs:
       contents: read
 
     steps:
+      - name: Set branch-specific variables
+        id: vars
+        shell: bash
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            dev)
+              echo "docker_tags=type=raw,value=dev" >> "$GITHUB_OUTPUT"
+              echo "gitops_overlay=dev" >> "$GITHUB_OUTPUT"
+              echo "release_label=dev" >> "$GITHUB_OUTPUT"
+              ;;
+            main)
+              echo "docker_tags=type=raw,value=latest" >> "$GITHUB_OUTPUT"
+              echo "gitops_overlay=prod" >> "$GITHUB_OUTPUT"
+              echo "release_label=prod" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported branch: ${GITHUB_REF_NAME}" >&2
+              exit 1
+              ;;
+          esac
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -28,7 +50,7 @@ jobs:
         with:
           images: docker.io/hurtlinb/cicdpoc
           tags: |
-            type=raw,value=dev
+            ${{ steps.vars.outputs.docker_tags }}
             type=sha
 
       - name: Build and push Docker image
@@ -46,15 +68,18 @@ jobs:
           token: ${{ secrets.GITOPS_PAT }}
           path: gitops
 
-      - name: Update cicdpoc dev image tag
+      - name: Update cicdpoc image tag
+        shell: bash
         run: |
-          sed -i "s/newTag: .*/newTag: sha-${GITHUB_SHA::7}/" gitops/apps/cicdpoc/overlays/dev/kustomization.yaml
+          target_file="gitops/apps/cicdpoc/overlays/${{ steps.vars.outputs.gitops_overlay }}/kustomization.yaml"
+          sed -i "s/newTag: .*/newTag: sha-${GITHUB_SHA::7}/" "$target_file"
 
       - name: Commit and push gitops change
+        shell: bash
         run: |
           cd gitops
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/cicdpoc/overlays/dev/kustomization.yaml
-          git commit -m "cicdpoc dev -> sha-${GITHUB_SHA::7}" || exit 0
+          git add "apps/cicdpoc/overlays/${{ steps.vars.outputs.gitops_overlay }}/kustomization.yaml"
+          git commit -m "cicdpoc ${{ steps.vars.outputs.release_label }} -> sha-${GITHUB_SHA::7}" || exit 0
           git push
