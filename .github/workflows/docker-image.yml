@@ -1,4 +1,4 @@
-name: Build and push Docker image
+name: Build and promote version
 
 on:
   push:
@@ -7,25 +7,31 @@ on:
       - main
 
 jobs:
-  docker:
+  prepare:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
+    outputs:
+      app_version: ${{ steps.vars.outputs.app_version }}
+      gitops_overlay: ${{ steps.vars.outputs.gitops_overlay }}
+      release_label: ${{ steps.vars.outputs.release_label }}
 
     steps:
-      - name: Set branch-specific variables
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve branch-specific variables
         id: vars
         shell: bash
         run: |
+          app_version="$(python3 -c 'import json; print(json.load(open("package.json", encoding="utf-8"))["version"])')"
+          echo "app_version=${app_version}" >> "$GITHUB_OUTPUT"
+
           case "${GITHUB_REF_NAME}" in
             dev)
-              echo "docker_tags=type=raw,value=dev" >> "$GITHUB_OUTPUT"
               echo "gitops_overlay=dev" >> "$GITHUB_OUTPUT"
               echo "release_label=dev" >> "$GITHUB_OUTPUT"
               ;;
             main)
-              echo "docker_tags=type=raw,value=latest" >> "$GITHUB_OUTPUT"
               echo "gitops_overlay=prod" >> "$GITHUB_OUTPUT"
               echo "release_label=prod" >> "$GITHUB_OUTPUT"
               ;;
@@ -35,6 +41,15 @@ jobs:
               ;;
           esac
 
+  build_dev_image:
+    if: github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    needs: prepare
+
+    permissions:
+      contents: read
+
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -50,7 +65,7 @@ jobs:
         with:
           images: docker.io/hurtlinb/cicdpoc
           tags: |
-            ${{ steps.vars.outputs.docker_tags }}
+            type=raw,value=${{ needs.prepare.outputs.app_version }}
             type=sha
 
       - name: Build and push Docker image
@@ -61,6 +76,14 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+  update_gitops:
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - build_dev_image
+    if: always() && needs.prepare.result == 'success' && (github.ref_name != 'dev' || needs.build_dev_image.result == 'success')
+
+    steps:
       - name: Checkout gitops repository
         uses: actions/checkout@v4
         with:
@@ -71,8 +94,8 @@ jobs:
       - name: Update cicdpoc image tag
         shell: bash
         run: |
-          target_file="gitops/apps/cicdpoc/overlays/${{ steps.vars.outputs.gitops_overlay }}/kustomization.yaml"
-          sed -i "s/newTag: .*/newTag: sha-${GITHUB_SHA::7}/" "$target_file"
+          target_file="gitops/apps/cicdpoc/overlays/${{ needs.prepare.outputs.gitops_overlay }}/kustomization.yaml"
+          sed -i "s/newTag: .*/newTag: ${{ needs.prepare.outputs.app_version }}/" "$target_file"
 
       - name: Commit and push gitops change
         shell: bash
@@ -80,6 +103,6 @@ jobs:
           cd gitops
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "apps/cicdpoc/overlays/${{ steps.vars.outputs.gitops_overlay }}/kustomization.yaml"
-          git commit -m "cicdpoc ${{ steps.vars.outputs.release_label }} -> sha-${GITHUB_SHA::7}" || exit 0
+          git add "apps/cicdpoc/overlays/${{ needs.prepare.outputs.gitops_overlay }}/kustomization.yaml"
+          git commit -m "cicdpoc ${{ needs.prepare.outputs.release_label }} -> v${{ needs.prepare.outputs.app_version }}" || exit 0
           git push

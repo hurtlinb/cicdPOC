@@ -19,34 +19,48 @@ docker build -t cicd-poc .
 ```
 
 Le workflow GitHub Actions de [`.github/workflows/docker-image.yml`](./.github/workflows/docker-image.yml)
-publie l'image `docker.io/hurtlinb/cicdpoc` :
+agit ainsi :
 
-- avec le tag `dev` pour la branche `dev`
-- avec le tag `latest` pour la branche `main`
+- sur `dev` : build Docker, push de l'image avec le tag de version lu dans `package.json`, puis mise à jour du tag dans GitOps
+- sur `main` : pas de build Docker, uniquement mise à jour du tag dans GitOps
 
-Dans les deux cas, il publie aussi un tag `sha-<commit>`.
+Sur `dev`, le workflow publie aussi un tag `sha-<commit>`.
 
 ## Déploiement avec Argo CD
 
-Les manifests Kubernetes sont dans `k8s/base` et sont compatibles `kustomize`.
+Les manifests Kubernetes sont organisés avec `kustomize` :
 
-Le manifest Argo CD est dans `argocd/application-dev.yaml`.
+- `k8s/base` contient les ressources communes
+- `k8s/overlays/dev` déploie l'environnement de développement
+- `k8s/overlays/prod` déploie l'environnement de production
+
+Les applications Argo CD sont :
+
+- `argocd/application-dev.yaml`
+- `argocd/application-prod.yaml`
 
 Déploiement :
 
 ```bash
 kubectl apply -f argocd/application-dev.yaml
+kubectl apply -f argocd/application-prod.yaml
 ```
 
-Argo CD synchronisera :
+Configuration Argo CD :
 
-- le dépôt `https://github.com/hurtlinb/cicdPOC.git`
-- la branche `dev`
-- le chemin `k8s/base`
+- `application-dev.yaml` synchronise la branche `dev` sur `k8s/overlays/dev`
+- `application-prod.yaml` synchronise la branche `main` sur `k8s/overlays/prod`
+- le workflow met à jour le tag d'image dans le repo GitOps avec la version applicative, par exemple `1.1.3`
 
-Ressources créées :
+Ressources déployées :
 
-- un namespace `cicd-poc`
+- un namespace `cicd-poc-dev` pour la dev
+- un namespace `cicd-poc-prod` pour la prod
 - un `Deployment`
 - un `Service` `ClusterIP`
-- un `Ingress` Traefik exposé sur `poc.app.emfnet.ch`
+- un `Ingress` Traefik par environnement
+
+Hôtes exposés :
+
+- dev : `poc-dev.app.emfnet.ch`
+- prod : `poc.app.emfnet.ch`
