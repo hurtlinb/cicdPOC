@@ -21,10 +21,11 @@ docker build -t cicd-poc .
 Le workflow GitHub Actions de [`.github/workflows/docker-image.yml`](./.github/workflows/docker-image.yml)
 agit ainsi :
 
-- sur `dev` : build Docker, push de l'image avec le tag de version lu dans `package.json`, puis mise à jour du tag dans GitOps
-- sur `main` : pas de build Docker, uniquement mise à jour du tag dans GitOps
+- sur `dev` : build Docker, push de l'image avec le tag de version lu dans `package.json`, puis mise à jour de `k8s/overlays/dev/kustomization.yaml`
+- sur `main` : pas de build Docker, uniquement mise à jour de `k8s/overlays/prod/kustomization.yaml`
 
 Sur `dev`, le workflow publie aussi un tag `sha-<commit>`.
+Les commits automatiques sur les fichiers `kustomization.yaml` ne relancent pas le workflow.
 
 ## Déploiement avec Argo CD
 
@@ -50,7 +51,7 @@ Configuration Argo CD :
 
 - `application-dev.yaml` synchronise la branche `dev` sur `k8s/overlays/dev`
 - `application-prod.yaml` synchronise la branche `main` sur `k8s/overlays/prod`
-- le workflow met à jour le tag d'image dans le repo GitOps avec la version applicative, par exemple `1.1.3`
+- le workflow met à jour le tag d'image dans ce dépôt avec la version applicative, par exemple `2.0.0`
 
 Ressources déployées :
 
