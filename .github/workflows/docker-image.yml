@@ -5,15 +5,22 @@ on:
     branches:
       - dev
       - main
+    paths-ignore:
+      - k8s/overlays/dev/kustomization.yaml
+      - k8s/overlays/prod/kustomization.yaml
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     outputs:
       app_version: ${{ steps.vars.outputs.app_version }}
-      gitops_overlay: ${{ steps.vars.outputs.gitops_overlay }}
+      target_file: ${{ steps.vars.outputs.target_file }}
       release_label: ${{ steps.vars.outputs.release_label }}
+      target_branch: ${{ steps.vars.outputs.target_branch }}
 
     steps:
       - name: Checkout repository
@@ -28,12 +35,14 @@ jobs:
 
           case "${GITHUB_REF_NAME}" in
             dev)
-              echo "gitops_overlay=dev" >> "$GITHUB_OUTPUT"
+              echo "target_file=k8s/overlays/dev/kustomization.yaml" >> "$GITHUB_OUTPUT"
               echo "release_label=dev" >> "$GITHUB_OUTPUT"
+              echo "target_branch=dev" >> "$GITHUB_OUTPUT"
               ;;
             main)
-              echo "gitops_overlay=prod" >> "$GITHUB_OUTPUT"
+              echo "target_file=k8s/overlays/prod/kustomization.yaml" >> "$GITHUB_OUTPUT"
               echo "release_label=prod" >> "$GITHUB_OUTPUT"
+              echo "target_branch=main" >> "$GITHUB_OUTPUT"
               ;;
             *)
               echo "Unsupported branch: ${GITHUB_REF_NAME}" >&2
@@ -83,26 +92,26 @@ jobs:
       - build_dev_image
     if: always() && needs.prepare.result == 'success' && (github.ref_name != 'dev' || needs.build_dev_image.result == 'success')
 
+    permissions:
+      contents: write
+
     steps:
-      - name: Checkout gitops repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: hurtlinb/gitops
-          token: ${{ secrets.GITOPS_PAT }}
-          path: gitops
+          ref: ${{ needs.prepare.outputs.target_branch }}
 
       - name: Update cicdpoc image tag
         shell: bash
         run: |
-          target_file="gitops/apps/cicdpoc/overlays/${{ needs.prepare.outputs.gitops_overlay }}/kustomization.yaml"
+          target_file="${{ needs.prepare.outputs.target_file }}"
           sed -i "s/newTag: .*/newTag: ${{ needs.prepare.outputs.app_version }}/" "$target_file"
 
-      - name: Commit and push gitops change
+      - name: Commit and push overlay change
         shell: bash
         run: |
-          cd gitops
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "apps/cicdpoc/overlays/${{ needs.prepare.outputs.gitops_overlay }}/kustomization.yaml"
+          git add "${{ needs.prepare.outputs.target_file }}"
           git commit -m "cicdpoc ${{ needs.prepare.outputs.release_label }} -> v${{ needs.prepare.outputs.app_version }}" || exit 0
           git push
