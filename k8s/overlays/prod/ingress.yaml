@@ -3,9 +3,13 @@ kind: Ingress
 metadata:
   name: cicd-poc
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - poc.app.emfnet.ch
   rules:
     - host: poc.app.emfnet.ch
       http:
