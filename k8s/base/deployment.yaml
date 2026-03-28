@@ -14,10 +14,22 @@ spec:
       labels:
         app: cicd-poc
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cicd-poc
-          image: docker.io/hurtlinb/cicdpoc:latest
+          image: docker.io/hurtlinb/cicdpoc:0.0.0
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
           ports:
             - containerPort: 3000
               name: http

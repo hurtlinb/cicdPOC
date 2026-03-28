@@ -22,10 +22,11 @@ Le workflow GitHub Actions de [`.github/workflows/docker-image.yml`](./.github/w
 agit ainsi :
 
 - sur `dev` : build Docker, push de l'image avec le tag de version lu dans `package.json`, puis mise à jour de `k8s/overlays/dev/kustomization.yaml`
-- sur `main` : pas de build Docker, uniquement mise à jour de `k8s/overlays/prod/kustomization.yaml`
+- sur `main` : pas de build Docker, création d'une pull request automatisée pour mettre à jour `k8s/overlays/prod/kustomization.yaml`
 
 Sur `dev`, le workflow publie aussi un tag `sha-<commit>`.
 Les commits automatiques sur les fichiers `kustomization.yaml` ne relancent pas le workflow.
+La production n'est plus modifiée par push direct depuis le workflow.
 
 ## Déploiement avec Argo CD
 
