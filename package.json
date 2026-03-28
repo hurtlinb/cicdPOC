@@ -1,6 +1,6 @@
 {
   "name": "cicd-poc",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Application Node.js minimale affichant Bienvenue et sa version",
   "main": "server.js",
   "scripts": {
