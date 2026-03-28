@@ -116,7 +116,7 @@ jobs:
           git commit -m "cicdpoc ${{ needs.prepare.outputs.release_label }} -> v${{ needs.prepare.outputs.app_version }}" || exit 0
           git push
 
-  propose_prod_overlay:
+  update_prod_overlay:
     runs-on: ubuntu-latest
     needs:
       - prepare
@@ -124,7 +124,6 @@ jobs:
 
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -138,19 +137,11 @@ jobs:
           target_file="${{ needs.prepare.outputs.target_file }}"
           sed -i "s/newTag: .*/newTag: ${{ needs.prepare.outputs.app_version }}/" "$target_file"
 
-      - name: Create pull request for prod overlay change
-        uses: peter-evans/create-pull-request@v7
-        with:
-          commit-message: "cicdpoc prod -> v${{ needs.prepare.outputs.app_version }}"
-          branch: "github-actions/prod-v${{ needs.prepare.outputs.app_version }}"
-          delete-branch: true
-          title: "Promote prod to v${{ needs.prepare.outputs.app_version }}"
-          body: |
-            Automated production overlay update.
-
-            - Environment: prod
-            - Version: ${{ needs.prepare.outputs.app_version }}
-            - File: ${{ needs.prepare.outputs.target_file }}
-          labels: |
-            automated
-            deployment
+      - name: Commit and push prod overlay change
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ needs.prepare.outputs.target_file }}"
+          git commit -m "cicdpoc ${{ needs.prepare.outputs.release_label }} -> v${{ needs.prepare.outputs.app_version }}" || exit 0
+          git push
